@@ -223,30 +223,39 @@ async function loadData() {
 }
 
   async function handlePhotoSelect(itemId, file) {
-  if (!file) return;
+  console.log("1. handlePhotoSelect called", itemId, file);
+  if (!file) { console.log("No file received"); return; }
   try {
+    console.log("2. starting compression");
     const compressedBlob = await fileToCompressedBlob(file);
+    console.log("3. compression done", compressedBlob);
+
     const filePath = `${session.user.id}/${itemId}-${Date.now()}.jpg`;
+    console.log("4. uploading to path", filePath);
 
     const { error: uploadError } = await supabase.storage
       .from("item-photos")
       .upload(filePath, compressedBlob, { contentType: "image/jpeg" });
 
-    if (uploadError) { console.error(uploadError); return; }
+    console.log("5. upload result", uploadError);
+    if (uploadError) { console.error("UPLOAD ERROR", uploadError); return; }
 
     const { data: urlData } = supabase.storage.from("item-photos").getPublicUrl(filePath);
     const publicUrl = urlData.publicUrl;
+    console.log("6. got public url", publicUrl);
 
     const { error: updateError } = await supabase
       .from("items")
       .update({ photo_url: publicUrl })
       .eq("id", itemId);
 
-    if (updateError) { console.error(updateError); return; }
+    console.log("7. db update result", updateError);
+    if (updateError) { console.error("DB UPDATE ERROR", updateError); return; }
 
     setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: publicUrl } : it)));
+    console.log("8. done, state updated");
   } catch (e) {
-    console.error(e);
+    console.error("CAUGHT EXCEPTION", e);
   }
 }
 
@@ -255,7 +264,7 @@ async function loadData() {
   if (error) { console.error(error); return; }
 
   setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: null } : it)));
-}
+} 
 
   const previewItem = items.find((i) => i.id === previewItemId) || null;
   if (!session) {
