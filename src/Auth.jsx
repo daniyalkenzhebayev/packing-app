@@ -13,12 +13,16 @@ export default function Auth() {
     setError("");
     setLoading(true);
 
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = isSignUp
+  ? await supabase.auth.signUp({ email, password })
+  : await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) setError(error.message);
-    setLoading(false);
+if (error) {
+  setError(error.message);
+} else if (isSignUp && data.user && !data.session) {
+  setError("Account created — check your email to confirm before logging in.");
+}
+setLoading(false);
   }
 
   return (

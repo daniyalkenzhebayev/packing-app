@@ -29,7 +29,7 @@ const TEMPLATES = {
 };
 const ACCENTS = ["c1", "c2", "c3", "c4", "c5"];
 
-function fileToCompressedDataUrl(file, maxDim = 480, quality = 0.72) {
+function fileToCompressedBlob(file, maxDim = 480, quality = 0.72) {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
     const reader = new FileReader();
@@ -43,7 +43,7 @@ function fileToCompressedDataUrl(file, maxDim = 480, quality = 0.72) {
       canvas.width = width; canvas.height = height;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL("image/jpeg", quality));
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg", quality);
     };
     img.onerror = reject;
     reader.readAsDataURL(file);
@@ -223,16 +223,39 @@ async function loadData() {
 }
 
   async function handlePhotoSelect(itemId, file) {
-    if (!file) return;
-    try {
-      const dataUrl = await fileToCompressedDataUrl(file);
-      setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: dataUrl } : it)));
-    } catch (e) {}
-  }
+  if (!file) return;
+  try {
+    const compressedBlob = await fileToCompressedBlob(file);
+    const filePath = `${session.user.id}/${itemId}-${Date.now()}.jpg`;
 
-  function removePhoto(itemId) {
-    setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: null } : it)));
+    const { error: uploadError } = await supabase.storage
+      .from("item-photos")
+      .upload(filePath, compressedBlob, { contentType: "image/jpeg" });
+
+    if (uploadError) { console.error(uploadError); return; }
+
+    const { data: urlData } = supabase.storage.from("item-photos").getPublicUrl(filePath);
+    const publicUrl = urlData.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from("items")
+      .update({ photo_url: publicUrl })
+      .eq("id", itemId);
+
+    if (updateError) { console.error(updateError); return; }
+
+    setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: publicUrl } : it)));
+  } catch (e) {
+    console.error(e);
   }
+}
+
+  async function removePhoto(itemId) {
+  const { error } = await supabase.from("items").update({ photo_url: null }).eq("id", itemId);
+  if (error) { console.error(error); return; }
+
+  setItems((i) => i.map((it) => (it.id === itemId ? { ...it, photo: null } : it)));
+}
 
   const previewItem = items.find((i) => i.id === previewItemId) || null;
   if (!session) {
