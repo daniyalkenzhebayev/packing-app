@@ -1,0 +1,16 @@
+{
+  "name": "Packlist - Packing Checklist",
+  "short_name": "Packlist",
+  "description": "Organize packing lists for trips and events",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F1ECE0",
+  "theme_color": "#23262B",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
