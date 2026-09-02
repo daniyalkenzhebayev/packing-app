@@ -279,8 +279,8 @@ async function loadData() {
   }
 
   return (
-    <div className="min-h-screen w-full flex bg-[#F1ECE0] text-[#23262B]" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="w-[280px] shrink-0 border-r border-[#DED4BE] flex flex-col bg-[#EDE6D6]/60">
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#F1ECE0] text-[#23262B]" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="w-full md:w-[280px] shrink-0 border-b md:border-b-0 md:border-r border-[#DED4BE] flex flex-col bg-[#EDE6D6]/60 max-h-[40vh] md:max-h-none">
         <div className="px-5 pt-6 pb-4 flex items-center justify-between">
   <div className="flex items-center gap-2">
     <Luggage size={20} className="text-[#8F6A20]" />
@@ -339,7 +339,7 @@ async function loadData() {
           </div>
         ) : (
           <>
-            <div className="px-8 pt-7 pb-5 border-b border-[#DED4BE] bg-[#FBF8F0]">
+            <div className="px-4 md:px-8 pt-5 md:pt-7 pb-4 md:pb-5 border-b border-[#DED4BE] bg-[#FBF8F0]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight">{selectedTrip.name}</h1>
@@ -386,7 +386,7 @@ async function loadData() {
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4">
               {tripCategories.length === 0 && (
                 <div className="text-center py-16 text-[#8F887A] text-sm">No categories yet — add one or load a template above.</div>
               )}
