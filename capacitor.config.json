@@ -1,0 +1,9 @@
+{
+  "appId": "com.danik.packlist",
+  "appName": "Packlist",
+  "webDir": "dist",
+  "server": {
+    "url": "https://packing-app-nine.vercel.app/",
+    "cleartext": true
+  }
+}

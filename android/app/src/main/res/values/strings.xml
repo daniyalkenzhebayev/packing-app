@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Packlist</string>
+    <string name="title_activity_main">Packlist</string>
+    <string name="package_name">com.danik.packlist</string>
+    <string name="custom_url_scheme">com.danik.packlist</string>
+</resources>

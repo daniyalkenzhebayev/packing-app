@@ -424,7 +424,7 @@ async function loadData() {
                               </button>
                             ) : (
                               <button onClick={() => fileInputRefs.current[item.id] && fileInputRefs.current[item.id].click()}
-                                className="opacity-0 group-hover:opacity-100 shrink-0 w-8 h-8 rounded border border-dashed border-[#DED4BE] flex items-center justify-center text-[#8F887A] hover:border-[#B8862E] hover:text-[#B8862E] transition">
+                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 shrink-0 w-8 h-8 rounded border border-dashed border-[#DED4BE] flex items-center justify-center text-[#8F887A] hover:border-[#B8862E] hover:text-[#B8862E] transition">
                                 <Camera size={14} />
                               </button>
                             )}
