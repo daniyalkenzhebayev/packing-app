@@ -168,19 +168,38 @@ async function loadData() {
   const newCats = [];
   const newExpanded = {};
 
-  for (const group of template) {
-    const { data: catData, error: catError } = await supabase
-      .from("categories")
-      .insert({ trip_id: selectedTripId, name: group.category })
-      .select()
-      .single();
-    if (catError) { console.error(catError); continue; }
+  // categories that already exist in this trip, keyed by lowercase name for matching
+  const existingByName = Object.fromEntries(
+    tripCategories.map((c) => [c.name.trim().toLowerCase(), c])
+  );
 
-    const cat = { ...catData, tripId: catData.trip_id };
-    newCats.push(cat);
+  for (const group of template) {
+    const key = group.category.trim().toLowerCase();
+    let cat = existingByName[key];
+
+    // only create the category if it doesn't already exist in this trip
+    if (!cat) {
+      const { data: catData, error: catError } = await supabase
+        .from("categories")
+        .insert({ trip_id: selectedTripId, name: group.category })
+        .select()
+        .single();
+      if (catError) { console.error(catError); continue; }
+
+      cat = { ...catData, tripId: catData.trip_id };
+      newCats.push(cat);
+      existingByName[key] = cat; // remember it so later groups in this same load see it too
+    }
     newExpanded[cat.id] = true;
 
-    const itemRows = group.items.map((name) => ({ category_id: cat.id, name }));
+    // only add items that don't already exist (by name) in this category
+    const existingItemNames = new Set(
+      items.filter((i) => i.categoryId === cat.id).map((i) => i.name.trim().toLowerCase())
+    );
+    const itemsToAdd = group.items.filter((name) => !existingItemNames.has(name.trim().toLowerCase()));
+    if (itemsToAdd.length === 0) continue;
+
+    const itemRows = itemsToAdd.map((name) => ({ category_id: cat.id, name }));
     const { data: itemsData, error: itemsError } = await supabase.from("items").insert(itemRows).select();
     if (itemsError) { console.error(itemsError); continue; }
 
