@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import Auth from "./Auth";
 import {
   Plus, Trash2, Camera, X, ChevronDown, ChevronRight, Package,
-  MapPin, Calendar, LayoutTemplate, Luggage, Check, Loader2,
+  MapPin, Calendar, LayoutTemplate, Luggage, Check, Loader2, Pin,
 } from "lucide-react";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -83,7 +83,7 @@ async function loadData() {
   const { data: itemsData } = await supabase.from("items").select("*").order("created_at");
 
   setTrips((tripsData || []).map(t => ({ ...t, startDate: t.start_date, endDate: t.end_date })));
-  setCategories((catsData || []).map(c => ({ ...c, tripId: c.trip_id })));
+  setCategories((catsData || []).map(c => ({ ...c, tripId: c.trip_id, pinned: c.pinned || false })));
   setItems((itemsData || []).map(i => ({ ...i, categoryId: i.category_id, photo: i.photo_url })));
   if (tripsData && tripsData[0]) setSelectedTripId(tripsData[0].id);
   setExpanded(Object.fromEntries((catsData || []).map((c) => [c.id, true])));
@@ -93,7 +93,9 @@ async function loadData() {
  
 
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
-  const tripCategories = categories.filter((c) => c.tripId === selectedTripId);
+  const tripCategories = categories
+  .filter((c) => c.tripId === selectedTripId)
+  .sort((a, b) => (b.pinned === a.pinned ? 0 : b.pinned ? 1 : -1));
 
   function tripProgress(tripId) {
     const catIds = categories.filter((c) => c.tripId === tripId).map((c) => c.id);
@@ -161,7 +163,21 @@ async function loadData() {
   setItems((i) => i.filter((it) => it.categoryId !== catId));
   setCategories((c) => c.filter((cat) => cat.id !== catId));
 }
+  async function togglePin(catId) {
+  const cat = categories.find((c) => c.id === catId);
+  const currentlyPinned = tripCategories.filter((c) => c.pinned).length;
 
+  // enforce a max of 3 pinned categories at once
+  if (!cat.pinned && currentlyPinned >= 3) {
+    alert("You can only pin up to 3 categories at a time. Unpin one first.");
+    return;
+  }
+
+  const { error } = await supabase.from("categories").update({ pinned: !cat.pinned }).eq("id", catId);
+  if (error) { console.error(error); return; }
+
+  setCategories((c) => c.map((cat) => (cat.id === catId ? { ...cat, pinned: !cat.pinned } : cat)));
+} 
   async function loadTemplate(templateName) {
   if (!selectedTripId) return;
   const template = TEMPLATES[templateName];
@@ -416,17 +432,27 @@ async function loadData() {
                 const draft = newItemDrafts[cat.id] || "";
                 return (
                   <div key={cat.id} className="bg-white border border-[#DED4BE] rounded-lg overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
-                      onClick={() => setExpanded((e) => ({ ...e, [cat.id]: !e[cat.id] }))}>
-                      <div className="flex items-center gap-2">
-                        {isOpen ? <ChevronDown size={15} className="text-[#8F887A]" /> : <ChevronRight size={15} className="text-[#8F887A]" />}
-                        <span className="font-medium text-sm">{cat.name}</span>
-                        <span className="text-[10px] font-mono text-[#8F887A] bg-[#F1ECE0] px-1.5 py-0.5 rounded">{checkedCount}/{catItems.length}</span>
-                      </div>
-                      <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }} className="text-[#8F887A] hover:text-[#B4482F] p-1">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <div className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none ${cat.pinned ? "bg-[#FBF3DE]" : ""}`}
+  onClick={() => setExpanded((e) => ({ ...e, [cat.id]: !e[cat.id] }))}>
+  <div className="flex items-center gap-2">
+    {isOpen ? <ChevronDown size={15} className="text-[#8F887A]" /> : <ChevronRight size={15} className="text-[#8F887A]" />}
+    <span className="font-medium text-sm">{cat.name}</span>
+    <span className="text-[10px] font-mono text-[#8F887A] bg-[#F1ECE0] px-1.5 py-0.5 rounded">{checkedCount}/{catItems.length}</span>
+    {cat.pinned && <Pin size={12} className="text-[#B8862E] fill-[#B8862E]" />}
+  </div>
+  <div className="flex items-center gap-1">
+    <button
+      onClick={(e) => { e.stopPropagation(); togglePin(cat.id); }}
+      className={`p-1 rounded transition ${cat.pinned ? "text-[#B8862E]" : "text-[#8F887A] hover:text-[#B8862E]"}`}
+      title={cat.pinned ? "Unpin category" : "Pin category"}
+    >
+      <Pin size={14} className={cat.pinned ? "fill-[#B8862E]" : ""} />
+    </button>
+    <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }} className="text-[#8F887A] hover:text-[#B4482F] p-1">
+      <Trash2 size={14} />
+    </button>
+  </div>
+</div>
 
                     {isOpen && (
                       <div className="border-t border-[#EDE6D6]">
