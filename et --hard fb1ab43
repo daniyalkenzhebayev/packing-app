@@ -1,0 +1,15 @@
+[33meb1dad4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m remove unused drag handle from items
+[33mec24477[m remove item-level drag reorder, keep category reorder
+[33m302d39d[m add drag-to-reorder for items update
+[33m9a331c5[m add drag-to-reorder for items
+[33mfb1ab43[m add drag-to-reorder for categories
+[33m9fd6ca5[m add search/filter within a trip
+[33m4d2e3d5[m add category pinning
+[33m29be803[m prevent duplicate categories/items when loading templates
+[33m3febc19[m fix icon visibility on mobile, add app icons
+[33m61f409e[m make layout responsive for mobile
+[33m65ee440[m add apple touch icon
+[33mafdce11[m add app icon and PWA manifest
+[33m807618d[m photo upload working
+[33mec82404[m add photo upload to supabase storage
+[33mceb68b0[m first version of packing app

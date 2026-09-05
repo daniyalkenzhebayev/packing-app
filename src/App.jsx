@@ -309,7 +309,9 @@ async function loadData() {
     const compressedBlob = await fileToCompressedBlob(file);
     console.log("3. compression done", compressedBlob);
 
-    const filePath = `${session.user.id}/${itemId}-${Date.now()}.jpg`;
+    const item = items.find((i) => i.id === itemId);
+    const category = categories.find((c) => c.id === item.categoryId);
+    const filePath = `${category.tripId}/${itemId}-${Date.now()}.jpg`;
     console.log("4. uploading to path", filePath);
 
     const { error: uploadError } = await supabase.storage
