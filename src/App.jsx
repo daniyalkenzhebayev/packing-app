@@ -2,6 +2,14 @@ import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import Auth from "./Auth";
 import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext, verticalListSortingStrategy, useSortable, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+import {
   Plus, Trash2, Camera, X, ChevronDown, ChevronRight, Package,
   MapPin, Calendar, LayoutTemplate, Luggage, Check, Loader2, Pin,
 } from "lucide-react";
@@ -62,7 +70,11 @@ export default function App() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [searchQuery, setSearchQuery] = useState(""); 
+  const [searchQuery, setSearchQuery] = useState("");
+  const sensors = useSensors(
+  useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
+); 
   const [newItemDrafts, setNewItemDrafts] = useState({});
   const [previewItemId, setPreviewItemId] = useState(null);
   const fileInputRefs = useRef({});
@@ -80,8 +92,8 @@ export default function App() {
 async function loadData() {
   setLoading(true);
   const { data: tripsData } = await supabase.from("trips").select("*").order("created_at");
-  const { data: catsData } = await supabase.from("categories").select("*").order("created_at");
-  const { data: itemsData } = await supabase.from("items").select("*").order("created_at");
+  const { data: catsData } = await supabase.from("categories").select("*").order("position");
+  const { data: itemsData } = await supabase.from("items").select("*").order("position");
 
   setTrips((tripsData || []).map(t => ({ ...t, startDate: t.start_date, endDate: t.end_date })));
   setCategories((catsData || []).map(c => ({ ...c, tripId: c.trip_id, pinned: c.pinned || false })));
@@ -96,7 +108,10 @@ async function loadData() {
   const selectedTrip = trips.find((t) => t.id === selectedTripId) || null;
   const tripCategories = categories
   .filter((c) => c.tripId === selectedTripId)
-  .sort((a, b) => (b.pinned === a.pinned ? 0 : b.pinned ? 1 : -1));
+  .sort((a, b) => {
+    if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+    return (a.position || 0) - (b.position || 0);
+  });
   const query = searchQuery.trim().toLowerCase();
   const visibleCategories = query
   ? tripCategories.filter((cat) =>
@@ -184,6 +199,28 @@ async function loadData() {
   if (error) { console.error(error); return; }
 
   setCategories((c) => c.map((cat) => (cat.id === catId ? { ...cat, pinned: !cat.pinned } : cat)));
+} 
+  async function handleCategoryDragEnd(event) {
+  const { active, over } = event;
+  if (!over || active.id === over.id) return;
+
+  const oldIndex = visibleCategories.findIndex((c) => c.id === active.id);
+  const newIndex = visibleCategories.findIndex((c) => c.id === over.id);
+  const reordered = arrayMove(visibleCategories, oldIndex, newIndex);
+
+  // update local state immediately so the drag feels instant
+  const updatedPositions = reordered.map((cat, index) => ({ ...cat, position: index }));
+  setCategories((prev) =>
+    prev.map((cat) => {
+      const updated = updatedPositions.find((u) => u.id === cat.id);
+      return updated ? { ...cat, position: updated.position } : cat;
+    })
+  );
+
+  // save new positions to the database
+  for (const cat of updatedPositions) {
+    await supabase.from("categories").update({ position: cat.position }).eq("id", cat.id);
+  }
 } 
   async function loadTemplate(templateName) {
   if (!selectedTripId) return;
@@ -443,74 +480,38 @@ async function loadData() {
 {tripCategories.length > 0 && visibleCategories.length === 0 && (
   <div className="text-center py-16 text-[#8F887A] text-sm">No items match "{searchQuery}".</div>
 )}
-              {visibleCategories.map((cat) => {
-  const catItems = items
-    .filter((i) => i.categoryId === cat.id)
-    .filter((i) => !query || i.name.toLowerCase().includes(query));
-                const checkedCount = catItems.filter((i) => i.checked).length;
-                const isOpen = expanded[cat.id];
-                const draft = newItemDrafts[cat.id] || "";
-                return (
-                  <div key={cat.id} className="bg-white border border-[#DED4BE] rounded-lg overflow-hidden">
-                    <div className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none ${cat.pinned ? "bg-[#FBF3DE]" : ""}`}
-  onClick={() => setExpanded((e) => ({ ...e, [cat.id]: !e[cat.id] }))}>
-  <div className="flex items-center gap-2">
-    {isOpen ? <ChevronDown size={15} className="text-[#8F887A]" /> : <ChevronRight size={15} className="text-[#8F887A]" />}
-    <span className="font-medium text-sm">{cat.name}</span>
-    <span className="text-[10px] font-mono text-[#8F887A] bg-[#F1ECE0] px-1.5 py-0.5 rounded">{checkedCount}/{catItems.length}</span>
-    {cat.pinned && <Pin size={12} className="text-[#B8862E] fill-[#B8862E]" />}
-  </div>
-  <div className="flex items-center gap-1">
-    <button
-      onClick={(e) => { e.stopPropagation(); togglePin(cat.id); }}
-      className={`p-1 rounded transition ${cat.pinned ? "text-[#B8862E]" : "text-[#8F887A] hover:text-[#B8862E]"}`}
-      title={cat.pinned ? "Unpin category" : "Pin category"}
-    >
-      <Pin size={14} className={cat.pinned ? "fill-[#B8862E]" : ""} />
-    </button>
-    <button onClick={(e) => { e.stopPropagation(); deleteCategory(cat.id); }} className="text-[#8F887A] hover:text-[#B4482F] p-1">
-      <Trash2 size={14} />
-    </button>
-  </div>
-</div>  
-
-                    {isOpen && (
-                      <div className="border-t border-[#EDE6D6]">
-                        {catItems.map((item) => (
-                          <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#F1ECE0] last:border-0 group">
-                            <button onClick={() => toggleItem(item.id)}
-                              className={`w-5 h-5 shrink-0 rounded-md border flex items-center justify-center transition ${item.checked ? "bg-[#2F6F63] border-[#2F6F63]" : "border-[#DED4BE] hover:border-[#2F6F63]"}`}>
-                              {item.checked && <Check size={13} className="text-white" />}
-                            </button>
-                            <span className={`flex-1 text-sm ${item.checked ? "line-through text-[#B0AB9E]" : ""}`}>{item.name}</span>
-                            {item.photo ? (
-                              <button onClick={() => setPreviewItemId(item.id)} className="shrink-0 w-8 h-8 rounded overflow-hidden border border-[#DED4BE]">
-                                <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
-                              </button>
-                            ) : (
-                              <button onClick={() => fileInputRefs.current[item.id] && fileInputRefs.current[item.id].click()}
-                                className="opacity-100 md:opacity-0 md:group-hover:opacity-100 shrink-0 w-8 h-8 rounded border border-dashed border-[#DED4BE] flex items-center justify-center text-[#8F887A] hover:border-[#B8862E] hover:text-[#B8862E] transition">
-                                <Camera size={14} />
-                              </button>
-                            )}
-                            <input ref={(el) => (fileInputRefs.current[item.id] = el)} type="file" accept="image/*" capture="environment" className="hidden"
-                              onChange={(e) => handlePhotoSelect(item.id, e.target.files && e.target.files[0])} />
-                            <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-[#8F887A] hover:text-[#B4482F] p-1">
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                        <div className="flex items-center gap-2 px-4 py-2.5">
-                          <Plus size={14} className="text-[#B0AB9E]" />
-                          <input value={draft} onChange={(e) => setNewItemDrafts((d) => ({ ...d, [cat.id]: e.target.value }))}
-                            onKeyDown={(e) => { if (e.key === "Enter") addItem(cat.id, draft); }}
-                            placeholder="Add an item…" className="flex-1 text-sm py-1 focus:outline-none bg-transparent placeholder:text-[#B0AB9E]" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+  <SortableContext items={visibleCategories.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+    {visibleCategories.map((cat) => {
+      const catItems = items
+        .filter((i) => i.categoryId === cat.id)
+        .filter((i) => !query || i.name.toLowerCase().includes(query));
+      const checkedCount = catItems.filter((i) => i.checked).length;
+      const isOpen = expanded[cat.id];
+      const draft = newItemDrafts[cat.id] || "";
+      return (
+        <SortableCategory
+          key={cat.id}
+          cat={cat}
+          catItems={catItems}
+          checkedCount={checkedCount}
+          isOpen={isOpen}
+          draft={draft}
+          fileInputRefs={fileInputRefs}
+          setExpanded={setExpanded}
+          togglePin={togglePin}
+          deleteCategory={deleteCategory}
+          toggleItem={toggleItem}
+          setPreviewItemId={setPreviewItemId}
+          handlePhotoSelect={handlePhotoSelect}
+          deleteItem={deleteItem}
+          setNewItemDrafts={setNewItemDrafts}
+          addItem={addItem}
+        />
+      );
+    })}
+  </SortableContext>
+</DndContext>
             </div>
           </>
         )}
@@ -581,6 +582,77 @@ function NewTripModal({ onCancel, onCreate }) {
           <button onClick={submit} className="text-sm px-4 py-1.5 rounded-md bg-[#23262B] text-white font-medium hover:bg-black transition">Create trip</button>
         </div>
       </div>
+    </div>
+  );
+}
+function SortableCategory({ cat, catItems, checkedCount, isOpen, draft, fileInputRefs,
+  setExpanded, togglePin, deleteCategory, toggleItem, setPreviewItemId, handlePhotoSelect,
+  deleteItem, setNewItemDrafts, addItem }) {
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="bg-white border border-[#DED4BE] rounded-lg overflow-hidden">
+      <div className={`flex items-center justify-between px-4 py-3 select-none ${cat.pinned ? "bg-[#FBF3DE]" : ""}`}>
+        <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => setExpanded((e) => ({ ...e, [cat.id]: !e[cat.id] }))}>
+          <button {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="text-[#B0AB9E] hover:text-[#5B564C] cursor-grab active:cursor-grabbing touch-none p-1 -ml-1">
+            <GripVertical size={15} />
+          </button>
+          {isOpen ? <ChevronDown size={15} className="text-[#8F887A]" /> : <ChevronRight size={15} className="text-[#8F887A]" />}
+          <span className="font-medium text-sm">{cat.name}</span>
+          <span className="text-[10px] font-mono text-[#8F887A] bg-[#F1ECE0] px-1.5 py-0.5 rounded">{checkedCount}/{catItems.length}</span>
+          {cat.pinned && <Pin size={12} className="text-[#B8862E] fill-[#B8862E]" />}
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => togglePin(cat.id)} className={`p-1 rounded transition ${cat.pinned ? "text-[#B8862E]" : "text-[#8F887A] hover:text-[#B8862E]"}`} title={cat.pinned ? "Unpin category" : "Pin category"}>
+            <Pin size={14} className={cat.pinned ? "fill-[#B8862E]" : ""} />
+          </button>
+          <button onClick={() => deleteCategory(cat.id)} className="text-[#8F887A] hover:text-[#B4482F] p-1">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="border-t border-[#EDE6D6]">
+          {catItems.map((item) => (
+            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#F1ECE0] last:border-0 group">
+              <button onClick={() => toggleItem(item.id)}
+                className={`w-5 h-5 shrink-0 rounded-md border flex items-center justify-center transition ${item.checked ? "bg-[#2F6F63] border-[#2F6F63]" : "border-[#DED4BE] hover:border-[#2F6F63]"}`}>
+                {item.checked && <Check size={13} className="text-white" />}
+              </button>
+              <span className={`flex-1 text-sm ${item.checked ? "line-through text-[#B0AB9E]" : ""}`}>{item.name}</span>
+              {item.photo ? (
+                <button onClick={() => setPreviewItemId(item.id)} className="shrink-0 w-8 h-8 rounded overflow-hidden border border-[#DED4BE]">
+                  <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                </button>
+              ) : (
+                <button onClick={() => fileInputRefs.current[item.id] && fileInputRefs.current[item.id].click()}
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 shrink-0 w-8 h-8 rounded border border-dashed border-[#DED4BE] flex items-center justify-center text-[#8F887A] hover:border-[#B8862E] hover:text-[#B8862E] transition">
+                  <Camera size={14} />
+                </button>
+              )}
+              <input ref={(el) => (fileInputRefs.current[item.id] = el)} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={(e) => handlePhotoSelect(item.id, e.target.files && e.target.files[0])} />
+              <button onClick={() => deleteItem(item.id)} className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-[#8F887A] hover:text-[#B4482F] p-1">
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            <Plus size={14} className="text-[#B0AB9E]" />
+            <input value={draft} onChange={(e) => setNewItemDrafts((d) => ({ ...d, [cat.id]: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") addItem(cat.id, draft); }}
+              placeholder="Add an item…" className="flex-1 text-sm py-1 focus:outline-none bg-transparent placeholder:text-[#B0AB9E]" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
