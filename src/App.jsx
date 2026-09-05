@@ -126,17 +126,24 @@ async function loadData() {
   }
 
   async function addTrip({ name, destination, startDate, endDate }) {
+  console.log("session at time of insert:", session);
+  console.log("session.user.id:", session?.user?.id);
   const accent = ACCENTS[trips.length % ACCENTS.length];
+
+  const payload = {
+    name,
+    destination,
+    start_date: startDate || null,
+    end_date: endDate || null,
+    accent,
+    user_id: session.user.id,
+  };
+  console.log("PAYLOAD BEING SENT:", payload);
+  
+console.log('auth.uid() sees:', data, error);
   const { data, error } = await supabase
     .from("trips")
-    .insert({
-      name,
-      destination,
-      start_date: startDate || null,
-      end_date: endDate || null,
-      accent,
-      user_id: session.user.id,
-    })
+    .insert(payload)
     .select()
     .single();
 
@@ -309,9 +316,7 @@ async function loadData() {
     const compressedBlob = await fileToCompressedBlob(file);
     console.log("3. compression done", compressedBlob);
 
-    const item = items.find((i) => i.id === itemId);
-    const category = categories.find((c) => c.id === item.categoryId);
-    const filePath = `${category.tripId}/${itemId}-${Date.now()}.jpg`;
+    const filePath = `${session.user.id}/${itemId}-${Date.now()}.jpg`;
     console.log("4. uploading to path", filePath);
 
     const { error: uploadError } = await supabase.storage
