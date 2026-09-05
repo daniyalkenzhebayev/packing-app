@@ -62,6 +62,7 @@ export default function App() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); 
   const [newItemDrafts, setNewItemDrafts] = useState({});
   const [previewItemId, setPreviewItemId] = useState(null);
   const fileInputRefs = useRef({});
@@ -96,6 +97,12 @@ async function loadData() {
   const tripCategories = categories
   .filter((c) => c.tripId === selectedTripId)
   .sort((a, b) => (b.pinned === a.pinned ? 0 : b.pinned ? 1 : -1));
+  const query = searchQuery.trim().toLowerCase();
+  const visibleCategories = query
+  ? tripCategories.filter((cat) =>
+      items.some((i) => i.categoryId === cat.id && i.name.toLowerCase().includes(query))
+    )
+  : tripCategories;
 
   function tripProgress(tripId) {
     const catIds = categories.filter((c) => c.tripId === tripId).map((c) => c.id);
@@ -387,9 +394,17 @@ async function loadData() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 mt-4">
-                <div className="relative">
-                  <button onClick={() => setShowTemplates((s) => !s)}
+              <div className="flex items-center gap-2 mt-4 flex-wrap">
+  <div className="relative flex-1 min-w-[140px] max-w-xs">
+    <input
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      placeholder="Search items…"
+      className="w-full text-xs border border-[#DED4BE] rounded-md pl-3 pr-3 py-1.5 focus:outline-none focus:border-[#B8862E] bg-white"
+    />
+  </div>
+  <div className="relative">
+    <button onClick={() => setShowTemplates((s) => !s)} 
                     className="flex items-center gap-1.5 rounded-md border border-[#DED4BE] bg-white px-3 py-1.5 text-xs font-medium hover:border-[#B8862E] transition">
                     <LayoutTemplate size={14} /> Load template
                   </button>
@@ -423,10 +438,15 @@ async function loadData() {
 
             <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6 space-y-4">
               {tripCategories.length === 0 && (
-                <div className="text-center py-16 text-[#8F887A] text-sm">No categories yet — add one or load a template above.</div>
-              )}
-              {tripCategories.map((cat) => {
-                const catItems = items.filter((i) => i.categoryId === cat.id);
+  <div className="text-center py-16 text-[#8F887A] text-sm">No categories yet — add one or load a template above.</div>
+)}
+{tripCategories.length > 0 && visibleCategories.length === 0 && (
+  <div className="text-center py-16 text-[#8F887A] text-sm">No items match "{searchQuery}".</div>
+)}
+              {visibleCategories.map((cat) => {
+  const catItems = items
+    .filter((i) => i.categoryId === cat.id)
+    .filter((i) => !query || i.name.toLowerCase().includes(query));
                 const checkedCount = catItems.filter((i) => i.checked).length;
                 const isOpen = expanded[cat.id];
                 const draft = newItemDrafts[cat.id] || "";
@@ -452,7 +472,7 @@ async function loadData() {
       <Trash2 size={14} />
     </button>
   </div>
-</div>
+</div>  
 
                     {isOpen && (
                       <div className="border-t border-[#EDE6D6]">
