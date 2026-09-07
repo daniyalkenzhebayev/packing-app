@@ -77,6 +77,8 @@ export default function App() {
 ); 
   const [newItemDrafts, setNewItemDrafts] = useState({});
   const [previewItemId, setPreviewItemId] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [tripMembers, setTripMembers] = useState([]); 
   const fileInputRefs = useRef({});
   const hasLoaded = useRef(false);
   useEffect(() => {
@@ -126,8 +128,6 @@ async function loadData() {
   }
 
   async function addTrip({ name, destination, startDate, endDate }) {
-  console.log("session at time of insert:", session);
-  console.log("session.user.id:", session?.user?.id);
   const accent = ACCENTS[trips.length % ACCENTS.length];
 
   const payload = {
@@ -138,9 +138,7 @@ async function loadData() {
     accent,
     user_id: session.user.id,
   };
-  console.log("PAYLOAD BEING SENT:", payload);
-  
-console.log('auth.uid() sees:', data, error);
+
   const { data, error } = await supabase
     .from("trips")
     .insert(payload)
@@ -167,7 +165,36 @@ console.log('auth.uid() sees:', data, error);
     setSelectedTripId(remaining[0] ? remaining[0].id : null);
   }
 }
+  async function loadTripMembers(tripId) {
+  const { data, error } = await supabase.rpc('get_trip_members', { target_trip_id: tripId });
+  if (error) { console.error(error); return; }
+  setTripMembers(data || []);
+}
 
+async function inviteMember(tripId, email) {
+  const { data, error } = await supabase.rpc('invite_trip_member', {
+    target_trip_id: tripId,
+    target_email: email,
+  });
+
+  if (error) return { success: false, message: error.message };
+  if (data !== 'success') return { success: false, message: data };
+
+  await loadTripMembers(tripId);
+  return { success: true };
+}
+
+async function removeMember(tripId, userId) {
+  const { data, error } = await supabase.rpc('remove_trip_member', {
+    target_trip_id: tripId,
+    target_user_id: userId,
+  });
+
+  if (error) { alert(error.message); return; }
+  if (data !== 'success') { alert(data); return; }
+
+  await loadTripMembers(tripId);
+}
   async function addCategory(name) {
   if (!name.trim() || !selectedTripId) return;
   const { data, error } = await supabase
@@ -433,6 +460,15 @@ console.log('auth.uid() sees:', data, error);
                     {selectedTrip.destination && <span className="flex items-center gap-1"><MapPin size={13} /> {selectedTrip.destination}</span>}
                   </div>
                 </div>
+                <button
+                 onClick={async () => {
+                await loadTripMembers(selectedTrip.id);
+                setShowShareModal(true);
+                }}
+                 className="text-xs text-[#2F6F63] font-medium border border-[#2F6F63] rounded-md px-3 py-1.5 hover:bg-[#2F6F63]/10 transition"
+                  >
+                Share trip
+                </button>
                 <button onClick={() => deleteTrip(selectedTrip.id)} className="text-[#5B564C] hover:text-[#B4482F] transition p-1.5 rounded hover:bg-[#B4482F]/10">
                   <Trash2 size={16} />
                 </button>
@@ -525,6 +561,16 @@ console.log('auth.uid() sees:', data, error);
       </div>
 
       {showNewTrip && <NewTripModal onCancel={() => setShowNewTrip(false)} onCreate={addTrip} />}
+        {showShareModal && selectedTrip && (
+  <ShareModal
+    trip={selectedTrip}
+    members={tripMembers}
+    onInvite={inviteMember}
+    onRemove={removeMember}
+    currentUserId={session.user.id}
+    onClose={() => setShowShareModal(false)}
+  />
+)}
 
       {previewItem && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-6 overflow-y-auto" onClick={() => setPreviewItemId(null)}>
@@ -660,6 +706,81 @@ function SortableCategory({ cat, catItems, checkedCount, isOpen, draft, fileInpu
           </div>
         </div>
       )}
+    </div>
+  );
+}
+function ShareModal({ trip, members, onInvite, onRemove, currentUserId, onClose }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleInvite() {
+    if (!email.trim()) return;
+    setLoading(true);
+    setStatus("");
+    const result = await onInvite(trip.id, email.trim());
+    setLoading(false);
+    if (result.success) {
+      setStatus("success:Member added!");
+      setEmail("");
+    } else {
+      setStatus("error:" + result.message);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-lg p-6 w-full max-w-sm max-h-[85vh] overflow-y-auto my-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-semibold">Share "{trip.name}"</h3>
+          <button onClick={onClose} className="text-[#8F887A] hover:text-black"><X size={16} /></button>
+        </div>
+        <p className="text-xs text-[#5B564C] mb-4">Invite someone by email to view and edit this trip together.</p>
+
+        <div className="flex gap-2 mb-2">
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleInvite(); }}
+            placeholder="friend@example.com"
+            className="flex-1 text-sm border border-[#DED4BE] rounded-md px-3 py-2 focus:outline-none focus:border-[#B8862E]"
+          />
+          <button
+            onClick={handleInvite}
+            disabled={loading}
+            className="text-sm px-3 py-2 rounded-md bg-[#23262B] text-white font-medium hover:bg-black transition disabled:opacity-50"
+          >
+            {loading ? "…" : "Invite"}
+          </button>
+        </div>
+
+        {status && (
+          <p className={`text-xs mb-3 ${status.startsWith("success") ? "text-[#2F6F63]" : "text-[#B4482F]"}`}>
+            {status.split(":").slice(1).join(":")}
+          </p>
+        )}
+
+        <div className="mt-4 border-t border-[#EDE6D6] pt-3">
+          <p className="text-xs font-medium text-[#5B564C] mb-2">People with access</p>
+          <div className="space-y-2">
+            {members.map((m) => (
+              <div key={m.user_id} className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-[#23262B]">{m.email}</span>
+                  {m.role === "owner" && (
+                    <span className="ml-2 text-[10px] font-mono text-[#B8862E] bg-[#FBF3DE] px-1.5 py-0.5 rounded">OWNER</span>
+                  )}
+                </div>
+                {m.role !== "owner" && m.user_id !== currentUserId && (
+                  <button onClick={() => onRemove(trip.id, m.user_id)} className="text-[#8F887A] hover:text-[#B4482F] text-xs">
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
