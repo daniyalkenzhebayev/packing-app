@@ -78,6 +78,8 @@ export default function App() {
   const [newItemDrafts, setNewItemDrafts] = useState({});
   const [previewItemId, setPreviewItemId] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+// shape: { title, message, onConfirm } or null
   const [tripMembers, setTripMembers] = useState([]); 
   const fileInputRefs = useRef({});
   const hasLoaded = useRef(false);
@@ -469,9 +471,17 @@ async function removeMember(tripId, userId) {
                   >
                 Share trip
                 </button>
-                <button onClick={() => deleteTrip(selectedTrip.id)} className="text-[#5B564C] hover:text-[#B4482F] transition p-1.5 rounded hover:bg-[#B4482F]/10">
-                  <Trash2 size={16} />
-                </button>
+                <button
+  onClick={() => setConfirmDialog({
+    title: "Delete this trip?",
+    message: `"${selectedTrip.name}" and everything in it — categories, items, and photos — will be permanently deleted. This can't be undone.`,
+    onConfirm: () => { deleteTrip(selectedTrip.id); setConfirmDialog(null); },
+  })}
+  className="text-[#5B564C] hover:text-[#B4482F] transition p-1.5 rounded hover:bg-[#B4482F]/10"
+  title="Delete trip"
+>
+  <Trash2 size={16} />
+</button>
               </div>
 
               <div className="flex items-center gap-2 mt-4 flex-wrap">
@@ -540,6 +550,7 @@ async function removeMember(tripId, userId) {
           checkedCount={checkedCount}
           isOpen={isOpen}
           draft={draft}
+          setConfirmDialog={setConfirmDialog}
           fileInputRefs={fileInputRefs}
           setExpanded={setExpanded}
           togglePin={togglePin}
@@ -569,6 +580,14 @@ async function removeMember(tripId, userId) {
     onRemove={removeMember}
     currentUserId={session.user.id}
     onClose={() => setShowShareModal(false)}
+  />
+)}
+{confirmDialog && (
+  <ConfirmDialog
+    title={confirmDialog.title}
+    message={confirmDialog.message}
+    onConfirm={confirmDialog.onConfirm}
+    onCancel={() => setConfirmDialog(null)}
   />
 )}
 
@@ -640,7 +659,7 @@ function NewTripModal({ onCancel, onCreate }) {
 }
 function SortableCategory({ cat, catItems, checkedCount, isOpen, draft, fileInputRefs,
   setExpanded, togglePin, deleteCategory, toggleItem, setPreviewItemId, handlePhotoSelect,
-  deleteItem, setNewItemDrafts, addItem }) {
+  deleteItem, setNewItemDrafts, addItem, dndSensors, onItemDragEnd, setConfirmDialog }) {
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cat.id });
 
@@ -666,9 +685,13 @@ function SortableCategory({ cat, catItems, checkedCount, isOpen, draft, fileInpu
           <button onClick={() => togglePin(cat.id)} className={`p-1 rounded transition ${cat.pinned ? "text-[#B8862E]" : "text-[#8F887A] hover:text-[#B8862E]"}`} title={cat.pinned ? "Unpin category" : "Pin category"}>
             <Pin size={14} className={cat.pinned ? "fill-[#B8862E]" : ""} />
           </button>
-          <button onClick={() => deleteCategory(cat.id)} className="text-[#8F887A] hover:text-[#B4482F] p-1">
-            <Trash2 size={14} />
-          </button>
+          <button onClick={() => setConfirmDialog({
+  title: "Delete this category?",
+  message: `"${cat.name}" and all ${catItems.length} item${catItems.length === 1 ? "" : "s"} inside it will be deleted.`,
+  onConfirm: () => { deleteCategory(cat.id); setConfirmDialog(null); },
+})} className="text-[#8F887A] hover:text-[#B4482F] p-1">
+  <Trash2 size={14} />
+</button>
         </div>
       </div>
 
@@ -779,6 +802,22 @@ function ShareModal({ trip, members, onInvite, onRemove, currentUserId, onClose 
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function ConfirmDialog({ title, message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6" onClick={onCancel}>
+      <div className="bg-white rounded-lg p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold mb-2">{title}</h3>
+        <p className="text-sm text-[#5B564C] mb-5">{message}</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onCancel} className="text-sm px-3 py-1.5 text-[#5B564C]">Cancel</button>
+          <button onClick={onConfirm} className="text-sm px-4 py-1.5 rounded-md bg-[#B4482F] text-white font-medium hover:bg-[#963A26] transition">
+            Delete
+          </button>
         </div>
       </div>
     </div>
