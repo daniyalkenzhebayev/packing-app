@@ -244,10 +244,15 @@ async function inviteMember(tripId, email) {
   });
 
   if (error) return { success: false, message: error.message };
-  if (data !== 'success') return { success: false, message: data };
 
-  await loadTripMembers(tripId);
-  return { success: true };
+  if (data === 'success') {
+    await loadTripMembers(tripId);
+    return { success: true, message: "Member added!" };
+  }
+  if (data === 'pending') {
+    return { success: true, message: "Invite sent — they'll get access once they sign up." };
+  }
+  return { success: false, message: data };
 }
 
 async function removeMember(tripId, userId) {
@@ -827,18 +832,18 @@ function ShareModal({ trip, members, onInvite, onRemove, currentUserId, onClose 
   const [loading, setLoading] = useState(false);
 
   async function handleInvite() {
-    if (!email.trim()) return;
-    setLoading(true);
-    setStatus("");
-    const result = await onInvite(trip.id, email.trim());
-    setLoading(false);
-    if (result.success) {
-      setStatus("success:Member added!");
-      setEmail("");
-    } else {
-      setStatus("error:" + result.message);
-    }
+  if (!email.trim()) return;
+  setLoading(true);
+  setStatus("");
+  const result = await onInvite(trip.id, email.trim());
+  setLoading(false);
+  if (result.success) {
+    setStatus("success:" + result.message);
+    setEmail("");
+  } else {
+    setStatus("error:" + result.message);
   }
+}
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6 overflow-y-auto" onClick={onClose}>
