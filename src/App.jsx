@@ -98,16 +98,59 @@ function showToast(message, type = "error") {
   if (!session) return;
   loadData();
 }, [session]);
+useEffect(() => {
+  if (!selectedTripId) return;
+
+  const channel = supabase
+    .channel(`trip-${selectedTripId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, (payload) => {
+      if (payload.eventType === 'INSERT') {
+        const newItem = { ...payload.new, categoryId: payload.new.category_id, photo: payload.new.photo_url };
+        setItems((prev) => prev.some((i) => i.id === newItem.id) ? prev : [...prev, newItem]);
+      } else if (payload.eventType === 'UPDATE') {
+        const updated = { ...payload.new, categoryId: payload.new.category_id, photo: payload.new.photo_url };
+        setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+      } else if (payload.eventType === 'DELETE') {
+        setItems((prev) => prev.filter((i) => i.id !== payload.old.id));
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, (payload) => {
+      if (payload.eventType === 'INSERT') {
+        const newCat = { ...payload.new, tripId: payload.new.trip_id };
+        setCategories((prev) => prev.some((c) => c.id === newCat.id) ? prev : [...prev, newCat]);
+        setExpanded((e) => ({ ...e, [newCat.id]: true }));
+      } else if (payload.eventType === 'UPDATE') {
+        const updated = { ...payload.new, tripId: payload.new.trip_id };
+        setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      } else if (payload.eventType === 'DELETE') {
+        setCategories((prev) => prev.filter((c) => c.id !== payload.old.id));
+      }
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [selectedTripId]);
 
 async function loadData() {
   setLoading(true);
   const { data: tripsData } = await supabase.from("trips").select("*").order("created_at");
 const { data: membershipData } = await supabase.from("trip_members").select("trip_id, role").eq("user_id", session.user.id);
 const roleByTrip = Object.fromEntries((membershipData || []).map((m) => [m.trip_id, m.role]));
+const { data: shareStatusData } = await supabase.rpc('get_my_trip_share_status');
+const memberCountByTrip = Object.fromEntries((shareStatusData || []).map((s) => [s.trip_id, s.member_count]));
   const { data: catsData } = await supabase.from("categories").select("*").order("position");
   const { data: itemsData } = await supabase.from("items").select("*").order("position");
-
-setTrips((tripsData || []).map(t => ({ ...t, startDate: t.start_date, endDate: t.end_date, myRole: roleByTrip[t.id] || "member" })));
+console.log("roleByTrip:", roleByTrip);
+console.log("memberCountByTrip:", memberCountByTrip);
+setTrips((tripsData || []).map(t => ({
+  ...t,
+  startDate: t.start_date,
+  endDate: t.end_date,
+  myRole: roleByTrip[t.id] || "member",
+  memberCount: memberCountByTrip[t.id] || 1,
+})));
   setCategories((catsData || []).map(c => ({ ...c, tripId: c.trip_id, pinned: c.pinned || false })));
   setItems((itemsData || []).map(i => ({ ...i, categoryId: i.category_id, photo: i.photo_url })));
   if (tripsData && tripsData[0]) setSelectedTripId(tripsData[0].id);
@@ -443,8 +486,11 @@ async function removeMember(tripId, userId) {
                   <span className={`w-2 h-2 rounded-full ${trip.accent}`} />
                  <span className="font-medium text-sm truncate">{trip.name}</span>
                   {trip.myRole === "member" && (
-                     <span className="text-[9px] font-mono text-[#2F6F63] bg-[#EAF3F0] px-1.5 py-0.5 rounded shrink-0">SHARED</span>
-                     )}
+                   <span className="text-[9px] font-mono text-[#2F6F63] bg-[#EAF3F0] px-1.5 py-0.5 rounded shrink-0">SHARED</span>
+                    )}
+                    {trip.myRole === "owner" && trip.memberCount > 1 && (
+                     <span className="text-[9px] font-mono text-[#B8862E] bg-[#FBF3DE] px-1.5 py-0.5 rounded shrink-0">SHARED AS OWNER</span>
+                      )}
                      </div>
                 {trip.destination && (
                   <div className="flex items-center gap-1 text-xs text-[#5B564C] mt-1">
