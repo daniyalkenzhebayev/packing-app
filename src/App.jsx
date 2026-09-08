@@ -102,10 +102,12 @@ function showToast(message, type = "error") {
 async function loadData() {
   setLoading(true);
   const { data: tripsData } = await supabase.from("trips").select("*").order("created_at");
+const { data: membershipData } = await supabase.from("trip_members").select("trip_id, role").eq("user_id", session.user.id);
+const roleByTrip = Object.fromEntries((membershipData || []).map((m) => [m.trip_id, m.role]));
   const { data: catsData } = await supabase.from("categories").select("*").order("position");
   const { data: itemsData } = await supabase.from("items").select("*").order("position");
 
-  setTrips((tripsData || []).map(t => ({ ...t, startDate: t.start_date, endDate: t.end_date })));
+setTrips((tripsData || []).map(t => ({ ...t, startDate: t.start_date, endDate: t.end_date, myRole: roleByTrip[t.id] || "member" })));
   setCategories((catsData || []).map(c => ({ ...c, tripId: c.trip_id, pinned: c.pinned || false })));
   setItems((itemsData || []).map(i => ({ ...i, categoryId: i.category_id, photo: i.photo_url })));
   if (tripsData && tripsData[0]) setSelectedTripId(tripsData[0].id);
@@ -173,6 +175,19 @@ async function loadData() {
     setSelectedTripId(remaining[0] ? remaining[0].id : null);
   }
 }
+async function leaveTrip(tripId) {
+  const { data, error } = await supabase.rpc('leave_trip', { target_trip_id: tripId });
+
+  if (error) { showToast(error.message); return; }
+  if (data !== 'success') { showToast(data); return; }
+
+  setTrips((t) => t.filter((tr) => tr.id !== tripId));
+  if (selectedTripId === tripId) {
+    const remaining = trips.filter((tr) => tr.id !== tripId);
+    setSelectedTripId(remaining[0] ? remaining[0].id : null);
+  }
+  showToast("You left the trip", "success");
+} 
   async function loadTripMembers(tripId) {
   const { data, error } = await supabase.rpc('get_trip_members', { target_trip_id: tripId });
   if (error) { console.error(error); return; }
@@ -426,8 +441,11 @@ async function removeMember(tripId, userId) {
                 className={`relative w-full text-left rounded-md border pl-4 pr-3 py-3 transition ${active ? "bg-white border-[#B8862E] shadow-sm" : "bg-white/50 border-[#DED4BE] hover:bg-white"}`}>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${trip.accent}`} />
-                  <span className="font-medium text-sm truncate">{trip.name}</span>
-                </div>
+                 <span className="font-medium text-sm truncate">{trip.name}</span>
+                  {trip.myRole === "member" && (
+                     <span className="text-[9px] font-mono text-[#2F6F63] bg-[#EAF3F0] px-1.5 py-0.5 rounded shrink-0">SHARED</span>
+                     )}
+                     </div>
                 {trip.destination && (
                   <div className="flex items-center gap-1 text-xs text-[#5B564C] mt-1">
                     <MapPin size={11} /> {trip.destination}
@@ -478,17 +496,30 @@ async function removeMember(tripId, userId) {
                   >
                 Share trip
                 </button>
-                <button
-  onClick={() => setConfirmDialog({
-    title: "Delete this trip?",
-    message: `"${selectedTrip.name}" and everything in it — categories, items, and photos — will be permanently deleted. This can't be undone.`,
-    onConfirm: () => { deleteTrip(selectedTrip.id); setConfirmDialog(null); },
-  })}
-  className="text-[#5B564C] hover:text-[#B4482F] transition p-1.5 rounded hover:bg-[#B4482F]/10"
-  title="Delete trip"
->
-  <Trash2 size={16} />
-</button>
+                {selectedTrip.myRole === "owner" ? (
+  <button
+    onClick={() => setConfirmDialog({
+      title: "Delete this trip?",
+      message: `"${selectedTrip.name}" and everything in it — categories, items, and photos — will be permanently deleted. This can't be undone.`,
+      onConfirm: () => { deleteTrip(selectedTrip.id); setConfirmDialog(null); },
+    })}
+    className="text-[#5B564C] hover:text-[#B4482F] transition p-1.5 rounded hover:bg-[#B4482F]/10"
+    title="Delete trip"
+  >
+    <Trash2 size={16} />
+  </button>
+) : (
+  <button
+    onClick={() => setConfirmDialog({
+      title: "Leave this trip?",
+      message: `You'll lose access to "${selectedTrip.name}". The trip itself and its data stay intact for other members.`,
+      onConfirm: () => { leaveTrip(selectedTrip.id); setConfirmDialog(null); },
+    })}
+    className="text-xs text-[#8F887A] hover:text-[#B4482F] transition px-2 py-1.5"
+  >
+    Leave trip
+  </button>
+)}
               </div>
 
               <div className="flex items-center gap-2 mt-4 flex-wrap">
