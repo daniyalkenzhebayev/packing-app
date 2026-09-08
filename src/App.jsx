@@ -79,6 +79,12 @@ export default function App() {
   const [previewItemId, setPreviewItemId] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [toast, setToast] = useState(null); // { message, type: 'error' | 'success' }
+
+function showToast(message, type = "error") {
+  setToast({ message, type });
+  setTimeout(() => setToast(null), 4000);
+}
 // shape: { title, message, onConfirm } or null
   const [tripMembers, setTripMembers] = useState([]); 
   const fileInputRefs = useRef({});
@@ -192,9 +198,10 @@ async function removeMember(tripId, userId) {
     target_user_id: userId,
   });
 
-  if (error) { alert(error.message); return; }
-  if (data !== 'success') { alert(data); return; }
+  if (error) { showToast(error.message); return; }
+  if (data !== 'success') { showToast(data); return; }
 
+  showToast("Member removed", "success");
   await loadTripMembers(tripId);
 }
   async function addCategory(name) {
@@ -226,8 +233,8 @@ async function removeMember(tripId, userId) {
   const currentlyPinned = tripCategories.filter((c) => c.pinned).length;
 
   // enforce a max of 3 pinned categories at once
-  if (!cat.pinned && currentlyPinned >= 3) {
-    alert("You can only pin up to 3 categories at a time. Unpin one first.");
+ if (!cat.pinned && currentlyPinned >= 3) {
+    showToast("You can only pin up to 3 categories at a time. Unpin one first.");
     return;
   }
 
@@ -589,6 +596,11 @@ async function removeMember(tripId, userId) {
     onConfirm={confirmDialog.onConfirm}
     onCancel={() => setConfirmDialog(null)}
   />
+)}
+{toast && (
+  <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2.5 rounded-md shadow-lg text-sm font-medium text-white ${toast.type === "error" ? "bg-[#B4482F]" : "bg-[#2F6F63]"}`}>
+    {toast.message}
+  </div>
 )}
 
       {previewItem && (
