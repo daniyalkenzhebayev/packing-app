@@ -527,9 +527,9 @@ async function removeMember(tripId, userId) {
         </div>
         <div className="p-3 border-t border-[#DED4BE]">
           <button onClick={() => { setShowNewTrip(true); setMobileSidebarOpen(false); }}
-  className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#B8862E] text-[#8F6A20] py-2.5 text-sm font-medium hover:bg-[#B8862E]/10 transition">
-  <Plus size={16} /> New trip
-</button>
+              className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#B8862E] text-[#8F6A20] py-2.5 text-sm font-medium hover:bg-[#B8862E]/10 transition">
+             <Plus size={16} /> New trip
+              </button>
         </div>
       </div>
 
