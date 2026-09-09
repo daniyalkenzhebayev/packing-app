@@ -80,6 +80,7 @@ export default function App() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [toast, setToast] = useState(null); // { message, type: 'error' | 'success' }
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
 function showToast(message, type = "error") {
   setToast({ message, type });
@@ -464,20 +465,34 @@ async function removeMember(tripId, userId) {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#F1ECE0] text-[#23262B]" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <div className="w-full md:w-[280px] shrink-0 border-b md:border-b-0 md:border-r border-[#DED4BE] flex flex-col bg-[#EDE6D6]/60 max-h-[40vh] md:max-h-none">
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#F1ECE0] text-[#23262B] relative overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+      {mobileSidebarOpen && (
+      <div
+       onClick={() => setMobileSidebarOpen(false)}
+       className="fixed inset-0 bg-black/40 z-30 md:hidden"
+       />
+       )}
+<div className={`fixed md:static top-0 left-0 h-full md:h-auto w-[85vw] max-w-[300px] md:w-[280px] shrink-0 border-r border-[#DED4BE] flex flex-col bg-[#EDE6D6] md:bg-[#EDE6D6]/60 z-40 transition-transform duration-300 md:transition-none ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         <div className="px-5 pt-6 pb-4 flex items-center justify-between">
   <div className="flex items-center gap-2">
     <Luggage size={20} className="text-[#8F6A20]" />
     <span className="text-lg font-semibold tracking-tight">Packlist</span>
   </div>
-  <button
-    onClick={() => supabase.auth.signOut()}
-    className="text-xs text-[#8F887A] hover:text-[#B4482F] transition"
-    title="Log out"
-  >
-    Log out
-  </button>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={() => supabase.auth.signOut()}
+      className="text-xs text-[#8F887A] hover:text-[#B4482F] transition"
+      title="Log out"
+    >
+      Log out
+    </button>
+    <button
+      onClick={() => setMobileSidebarOpen(false)}
+      className="md:hidden text-[#8F887A] hover:text-black p-1"
+    >
+      <X size={18} />
+    </button>
+  </div>
 </div>
         <div className="flex-1 overflow-y-auto px-3 space-y-2 pb-4">
           {trips.map((trip) => {
@@ -485,7 +500,7 @@ async function removeMember(tripId, userId) {
             const pct = prog.total ? Math.round((prog.checked / prog.total) * 100) : 0;
             const active = trip.id === selectedTripId;
             return (
-              <button key={trip.id} onClick={() => setSelectedTripId(trip.id)}
+              <button key={trip.id} onClick={() => { setSelectedTripId(trip.id); setMobileSidebarOpen(false); }}
                 className={`relative w-full text-left rounded-md border pl-4 pr-3 py-3 transition ${active ? "bg-white border-[#B8862E] shadow-sm" : "bg-white/50 border-[#DED4BE] hover:bg-white"}`}>
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${trip.accent}`} />
@@ -511,10 +526,10 @@ async function removeMember(tripId, userId) {
           })}
         </div>
         <div className="p-3 border-t border-[#DED4BE]">
-          <button onClick={() => setShowNewTrip(true)}
-            className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#B8862E] text-[#8F6A20] py-2.5 text-sm font-medium hover:bg-[#B8862E]/10 transition">
-            <Plus size={16} /> New trip
-          </button>
+          <button onClick={() => { setShowNewTrip(true); setMobileSidebarOpen(false); }}
+  className="w-full flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#B8862E] text-[#8F6A20] py-2.5 text-sm font-medium hover:bg-[#B8862E]/10 transition">
+  <Plus size={16} /> New trip
+</button>
         </div>
       </div>
 
@@ -533,7 +548,15 @@ async function removeMember(tripId, userId) {
             <div className="px-4 md:px-8 pt-5 md:pt-7 pb-4 md:pb-5 border-b border-[#DED4BE] bg-[#FBF8F0]">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">{selectedTrip.name}</h1>
+                  <div className="flex items-start gap-2">
+                   <button
+                     onClick={() => setMobileSidebarOpen(true)}
+                        className="md:hidden shrink-0 mt-1 p-1.5 -ml-1.5 rounded-md text-[#5B564C] hover:bg-[#EDE6D6] transition"
+                           >
+                           <ChevronRight size={20} />
+                             </button>
+                              <h1 className="text-2xl font-semibold tracking-tight truncate">{selectedTrip.name}</h1>
+                               </div>
                   <div className="flex items-center gap-4 mt-1.5 text-sm text-[#5B564C]">
                     {selectedTrip.destination && <span className="flex items-center gap-1"><MapPin size={13} /> {selectedTrip.destination}</span>}
                   </div>
