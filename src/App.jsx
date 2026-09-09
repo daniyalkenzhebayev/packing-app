@@ -473,8 +473,7 @@ async function removeMember(tripId, userId) {
        />
        )}
 <div className={`fixed md:static top-0 left-0 h-full md:h-auto w-[85vw] max-w-[300px] md:w-[280px] shrink-0 border-r border-[#DED4BE] flex flex-col bg-[#EDE6D6] md:bg-[#EDE6D6]/60 z-40 transition-transform duration-300 md:transition-none ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
-        <div className="px-5 pt-6 pb-4 flex items-center justify-between">
-  <div className="flex items-center gap-2">
+<div className="px-5 pt-6 pb-4 flex items-center justify-between" style={{ paddingTop: "max(1.5rem, env(safe-area-inset-top))" }}>  <div className="flex items-center gap-2">
     <Luggage size={20} className="text-[#8F6A20]" />
     <span className="text-lg font-semibold tracking-tight">Packlist</span>
   </div>
