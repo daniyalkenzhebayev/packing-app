@@ -465,7 +465,7 @@ async function removeMember(tripId, userId) {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#F1ECE0] text-[#23262B] relative overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-full w-full flex flex-col md:flex-row bg-[#F1ECE0] text-[#23262B] relative overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }}>
       {mobileSidebarOpen && (
       <div
        onClick={() => setMobileSidebarOpen(false)}
