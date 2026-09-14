@@ -1,16 +1,25 @@
-# React + Vite
+# Packlist
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A packing and inventory checklist app for organizing items for trips and events. Create a trip, organize items into categories, attach photos so you know exactly what you're packing, and check things off as you go.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Trips** — organize packing lists by trip or event (e.g. "Two-Week Trip to Almaty")
+- **Categories** — group items into custom categories, or load predefined templates (Documents, Electronics, Clothing, etc.)
+- **Items with photos** — attach a photo to any item so you can visually confirm what to pack
+- **Pinning** — pin up to 3 important categories to keep them at the top
+- **Search** — filter items within a trip in real time
+- **Drag-to-reorder** — reorder categories by dragging
+- **Shared trips** — invite others by email to view and edit a trip together, with live sync
+- **Installable** — works as an installable app on iOS/Android (PWA), plus a native Android build
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React (Vite), Tailwind CSS
+- **Backend**: [Supabase](https://supabase.com) — Postgres database, authentication, file storage, realtime sync, secured with Row Level Security
+- **Hosting**: [Vercel](https://vercel.com)
+- **Native mobile**: [Capacitor](https://capacitorjs.com) (Android)
 
-## Expanding the ESLint configuration
+## Status
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Actively developed. Currently used by a small group of testers.
